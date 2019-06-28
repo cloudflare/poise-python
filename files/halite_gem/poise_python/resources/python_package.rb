@@ -50,8 +50,7 @@ except ImportError:
   # Pip 10 moved all internals to their own package.
   from pip._internal.commands import InstallCommand
   from pip._internal.index import PackageFinder
-  from pip._internal.req import InstallRequirement
-  from pip._internal.req.constructors import install_req_from_line
+
 
 packages = {}
 cmd = InstallCommand()
@@ -75,7 +74,12 @@ with cmd._build_session(options) as session:
   finder = PackageFinder(**finder_options)
   find_all = getattr(finder, 'find_all_candidates', getattr(finder, '_find_all_versions', None))
   for arg in args:
-    req = install_req_from_line(arg)
+    try:
+      from pip._internal.req.constructors import install_req_from_line
+      req = install_req_from_line(arg)
+    except ImportError:
+      from pip._internal.req import InstallRequirement
+      req = InstallRequirement.from_line(arg)
     found = finder.find_requirement(req, True)
     all_candidates = find_all(req.name)
     candidate = [c for c in all_candidates if c.location == found]
