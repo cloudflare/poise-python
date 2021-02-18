@@ -49,7 +49,6 @@ try:
   cmd = InstallCommand()
 except ImportError:
   # Pip 10 moved all internals to their own package.
-  from pip._internal.commands import InstallCommand
   from pip._internal.index import PackageFinder
   cmd = create_command("install")
 
