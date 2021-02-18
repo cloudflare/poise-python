@@ -180,9 +180,6 @@ module PoisePython
           end
 
           Chef::Log.debug("[#{new_resource}] Installing pip #{new_resource.version} via itself")
-          if pip_version.to_i < 19
-            get_pip_url = 'https://s3.amazonaws.com/a1s-public-software-repository/get-pip.py'
-          end
           notifying_block do
             # Use pip to upgrade (or downgrade) itself.
             python_package 'pip' do
