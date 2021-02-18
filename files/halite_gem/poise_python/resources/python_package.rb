@@ -46,18 +46,17 @@ try:
   from pip.commands import InstallCommand
   from pip.index import PackageFinder
   from pip.req import InstallRequirement
+  cmd = InstallCommand()
 except ImportError:
   # Pip 10 moved all internals to their own package.
+  cmd = create_command("install")
   try:
-    from pip._internal.commands import InstallCommand
     from pip._internal.index import PackageFinder
   except ImportError:
-    from pip._internal.commands.install import InstallCommand
     from pip._internal.index.package_finder import PackageFinder
 
 
 packages = {}
-cmd = InstallCommand()
 options, args = cmd.parse_args(sys.argv[1:])
 with cmd._build_session(options) as session:
   if options.no_index:
