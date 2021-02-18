@@ -75,7 +75,17 @@ with cmd._build_session(options) as session:
     finder_options['process_dependency_links'] = options.process_dependency_links
   if getattr(options, 'format_control', None):
     finder_options['format_control'] = options.format_control
-  finder = PackageFinder(**finder_options)
+  try:
+    finder = PackageFinder(**finder_options)
+  except TypeError:
+    from pip._internal.index.collector import LinkCollector
+    from pip._internal.models.selection_prefs import SelectionPreferences
+    collector = LinkCollector.create(session, options)
+    selection_prefs = SelectionPreferences(
+      False, # allow_yanked
+      allow_all_prereleases=options.pre
+    )
+    finder = PackageFinder.create(collector, selection_prefs)
   find_all = getattr(finder, 'find_all_candidates', getattr(finder, '_find_all_versions', None))
   for arg in args:
     try:
