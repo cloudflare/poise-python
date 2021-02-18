@@ -56,6 +56,11 @@ except ImportError:
   except ImportError:
     from pip._internal.index.package_finder import PackageFinder
 
+try:
+  from pip._internal.req.constructors import install_req_from_line
+except ImportError:
+  from pip._internal.req import InstallRequirement
+  install_req_from_line = InstallRequirement.from_line
 
 packages = {}
 options, args = cmd.parse_args(sys.argv[1:])
@@ -88,12 +93,7 @@ with cmd._build_session(options) as session:
     finder = PackageFinder.create(collector, selection_prefs)
   find_all = getattr(finder, 'find_all_candidates', getattr(finder, '_find_all_versions', None))
   for arg in args:
-    try:
-      from pip._internal.req.constructors import install_req_from_line
-      req = install_req_from_line(arg)
-    except ImportError:
-      from pip._internal.req import InstallRequirement
-      req = InstallRequirement.from_line(arg)
+    req = install_req_from_line(arg)
     found = finder.find_requirement(req, True)
     all_candidates = find_all(req.name)
     candidate = [c for c in all_candidates if c.location == found]
