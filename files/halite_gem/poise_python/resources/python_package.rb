@@ -42,18 +42,37 @@ if re.match(r'0\\.|1\\.|6\\.0', pip.__version__):
   sys.stderr.write('The python_package resource requires pip >= 6.1.0, currently '+pip.__version__+'\\n')
   sys.exit(1)
 
+# pip has shuffled around it's internals over the years so we gotta test where things are
 try:
   from pip.commands import InstallCommand
-  from pip.index import PackageFinder
-  from pip.req import InstallRequirement
+  cmd = InstallCommand()
 except ImportError:
-  # Pip 10 moved all internals to their own package.
-  from pip._internal.commands import InstallCommand
-  from pip._internal.index import PackageFinder
+  try:
+    from pip._internal.commands import InstallCommand
+    cmd = InstallCommand()
+  except ImportError:
+    from pip._internal.commands import create_command
+    cmd = create_command("install")
 
+try:
+  from pip.index import PackageFinder
+except ImportError:
+  try:
+    from pip._internal.index import PackageFinder
+  except ImportError:
+    from pip._internal.index.package_finder import PackageFinder
+
+try:
+  from pip.req import InstallRequirement
+  install_req_from_line = InstallRequirement.from_line
+except ImportError:
+  try:
+    from pip._internal.req import InstallRequirement
+    install_req_from_line = InstallRequirement.from_line
+  except ImportError:
+    from pip._internal.req.constructors import install_req_from_line
 
 packages = {}
-cmd = InstallCommand()
 options, args = cmd.parse_args(sys.argv[1:])
 with cmd._build_session(options) as session:
   if options.no_index:
@@ -71,20 +90,45 @@ with cmd._build_session(options) as session:
     finder_options['process_dependency_links'] = options.process_dependency_links
   if getattr(options, 'format_control', None):
     finder_options['format_control'] = options.format_control
-  finder = PackageFinder(**finder_options)
-  find_all = getattr(finder, 'find_all_candidates', getattr(finder, '_find_all_versions', None))
-  for arg in args:
+  try:
+    finder = PackageFinder(**finder_options)
+  except TypeError:
+    # need to use LinkCollector
     try:
-      from pip._internal.req.constructors import install_req_from_line
-      req = install_req_from_line(arg)
+      from pip._internal.collector import LinkCollector
     except ImportError:
-      from pip._internal.req import InstallRequirement
-      req = InstallRequirement.from_line(arg)
+      from pip._internal.index.collector import LinkCollector
+
+    from pip._internal.models.search_scope import SearchScope
+    from pip._internal.models.selection_prefs import SelectionPreferences
+
+    search_scope = SearchScope.create(
+      finder_options['find_links'], finder_options['index_urls']
+    )
+    collector = LinkCollector(session, search_scope)
+    selection_prefs = SelectionPreferences(
+      allow_yanked=False,
+      allow_all_prereleases=options.pre,
+      format_control=finder_options.get('format_control')
+    )
+    finder = PackageFinder.create(collector, selection_prefs)
+  find_all = getattr(finder, 'find_all_candidates', getattr(finder, '_find_all_versions', None))
+
+  def candidate_link(c, default=None):
+    return getattr(c, 'location', getattr(c, 'link', default))
+
+  for arg in args:
+    req = install_req_from_line(arg)
     found = finder.find_requirement(req, True)
     all_candidates = find_all(req.name)
-    candidate = [c for c in all_candidates if c.location == found]
+    candidate = [
+      c for c in all_candidates
+      if candidate_link(c) == candidate_link(found, default=found)
+    ]
     if candidate:
-      packages[candidate[0].project.lower()] = str(candidate[0].version)
+      c = candidate[0]
+      candidate_name = getattr(c, 'project', getattr(c, 'name', None)).lower()
+      packages[candidate_name] = str(c.version)
 json.dump(packages, sys.stdout)
 EOH
 
