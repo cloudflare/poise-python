@@ -107,7 +107,7 @@ with cmd._build_session(options) as session:
     )
     collector = LinkCollector(session, search_scope)
     selection_prefs = SelectionPreferences(
-      False, # allow_yanked
+      allow_yanked=False,
       allow_all_prereleases=options.pre,
       format_control=finder_options.get('format_control')
     )
@@ -128,7 +128,7 @@ with cmd._build_session(options) as session:
     if candidate:
       c = candidate[0]
       candidate_name = getattr(c, 'project', getattr(c, 'name', None)).lower()
-      packages[candidate_name] = c.version
+      packages[candidate_name] = str(c.version)
 json.dump(packages, sys.stdout)
 EOH
 
