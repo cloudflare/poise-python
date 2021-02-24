@@ -69,7 +69,7 @@ except ImportError:
   try:
     from pip._internal.req import InstallRequirement
     install_req_from_line = InstallRequirement.from_line
-  except ImportError:
+  except (ImportError, AttributeError):
     from pip._internal.req.constructors import install_req_from_line
 
 packages = {}
